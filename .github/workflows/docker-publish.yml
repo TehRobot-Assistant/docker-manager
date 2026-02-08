@@ -74,4 +74,4 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
           short-description: "Manage Docker containers remotely. Secure login, user permissions, and container groups."
-          readme-filepath: ./README.md
+          readme-filepath: ./DOCKERHUB.md
