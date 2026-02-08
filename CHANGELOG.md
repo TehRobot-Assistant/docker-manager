@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.0] - 2026-02-08
+
+### Added
+- **Admin message** — broadcast a message to all users, displayed at top of page
+- **Custom icon** — replaced whale emoji with custom icon centered above title
+
+### Changed
+- Admin tab now has Settings section for admin message
+
 ## [1.1.0] - 2026-02-08
 
 ### Added
