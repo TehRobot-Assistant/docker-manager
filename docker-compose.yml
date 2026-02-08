@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  game-server-panel:
+    image: ghcr.io/tehrobot-assistant/game-server-panel:latest
+    container_name: game-server-panel
+    ports:
+      - "3000:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config:/config
+    environment:
+      - PORT=3000
+      - ADMIN_PASSWORD=admin
+    restart: unless-stopped

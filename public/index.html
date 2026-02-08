@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docker Manager</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card-hover: #334155;
+      --border: #334155;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    
+    .container { max-width: 600px; margin: 0 auto; padding: 16px; }
+    
+    header { text-align: center; padding: 24px 0 16px; }
+    header h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 4px; }
+    header .subtitle { color: var(--muted); font-size: 0.85rem; }
+    
+    .warning-banner {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid var(--warning);
+      color: var(--warning);
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+    .warning-banner a { color: var(--warning); }
+    
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      background: var(--card);
+      padding: 4px;
+      border-radius: 10px;
+    }
+    
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .tab-btn.active { background: var(--accent); color: white; }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+    
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    
+    .card h3 { font-size: 1rem; margin-bottom: 12px; }
+    
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.85rem; color: var(--muted); }
+    
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
+    
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-warning { background: var(--warning); color: #000; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+    .btn-block { width: 100%; }
+    .btn-sm { padding: 6px 10px; font-size: 0.8rem; }
+    
+    .user-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      background: var(--card);
+      border-radius: 10px;
+      font-size: 0.9rem;
+    }
+    
+    .user-bar span { color: var(--muted); }
+    .user-bar strong { color: var(--text); }
+    
+    .server-list { display: flex; flex-direction: column; gap: 8px; }
+    
+    .server-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--card);
+      border-radius: 10px;
+      border-left: 3px solid var(--muted);
+      transition: background 0.15s;
+    }
+    
+    .server-row:hover { background: var(--card-hover); }
+    .server-row.running { border-left-color: var(--success); }
+    .server-row.exited, .server-row.stopped { border-left-color: var(--danger); }
+    .server-row.restarting { border-left-color: var(--warning); }
+    
+    .server-info { flex: 1; min-width: 0; }
+    .server-name { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .server-status { font-size: 0.8rem; color: var(--muted); }
+    
+    .server-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    
+    .action-btn {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    
+    .action-btn:hover:not(:disabled) { color: var(--text); background: var(--border); }
+    .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .action-btn.start:hover:not(:disabled) { color: var(--success); }
+    .action-btn.stop:hover:not(:disabled) { color: var(--danger); }
+    .action-btn.restart:hover:not(:disabled) { color: var(--warning); }
+    
+    .user-list, .group-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    
+    .user-item, .group-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      background: var(--bg);
+      border-radius: 8px;
+      gap: 12px;
+    }
+    
+    .user-item-info, .group-item-info { flex: 1; min-width: 0; }
+    .user-item-name, .group-item-name { font-weight: 600; font-size: 0.9rem; }
+    .user-item-meta, .group-item-meta { font-size: 0.8rem; color: var(--muted); }
+    .user-item-actions, .group-item-actions { display: flex; gap: 6px; }
+    
+    /* Two-column checkbox list */
+    .checkbox-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      max-height: 250px;
+      overflow-y: auto;
+      padding: 8px;
+      background: var(--bg);
+      border-radius: 8px;
+      margin-top: 8px;
+    }
+    
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    
+    .checkbox-item:hover { background: var(--card); }
+    .checkbox-item.selected { background: var(--card); }
+    
+    .checkbox-item input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .checkbox-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    /* Groups section in modal */
+    .groups-section {
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .groups-section label { margin-bottom: 8px; }
+    
+    .group-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    
+    .group-chip {
+      padding: 6px 12px;
+      background: var(--accent);
+      color: white;
+      border-radius: 16px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    
+    .group-chip:hover { background: var(--accent-hover); }
+    
+    .filter-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    .filter-row input { flex: 1; }
+    
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      z-index: 100;
+    }
+    
+    .modal {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 20px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    
+    .modal h3 { margin-bottom: 16px; font-size: 1.1rem; }
+    
+    .checkbox-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .checkbox-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
+    
+    .no-items { text-align: center; color: var(--muted); padding: 32px; font-size: 0.9rem; }
+    .loading { text-align: center; padding: 32px; color: var(--muted); }
+    .hidden { display: none !important; }
+    
+    .error {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+    
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    
+    .section-header h3 { margin: 0; }
+    
+    @media (max-width: 400px) {
+      .server-row { flex-wrap: wrap; }
+      .server-actions { width: 100%; justify-content: flex-end; margin-top: 8px; }
+      .checkbox-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🐳 Docker Manager</h1>
+      <p class="subtitle">Start, stop, and restart your containers remotely</p>
+    </header>
+    
+    <div id="login-view">
+      <div class="card">
+        <div id="login-error" class="error hidden"></div>
+        <form id="login-form">
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="username" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="password" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+        </form>
+      </div>
+    </div>
+    
+    <div id="dashboard-view" class="hidden">
+      <div id="password-warning" class="warning-banner hidden">
+        ⚠️ Default password in use. <a href="#" onclick="showChangePassword()">Change it now</a>
+      </div>
+      
+      <div class="user-bar">
+        <span>Signed in as <strong id="username-display"></strong></span>
+        <button class="btn btn-ghost btn-sm" id="logout-btn">Sign Out</button>
+      </div>
+      
+      <div id="admin-tabs" class="tabs hidden">
+        <button class="tab-btn active" data-tab="dockers">Dockers</button>
+        <button class="tab-btn" data-tab="admin">Admin</button>
+      </div>
+      
+      <div id="dockers-tab">
+        <div id="servers-loading" class="loading">Loading containers...</div>
+        <div id="servers-list" class="server-list"></div>
+        <div id="no-servers" class="no-items hidden">No containers assigned to your account.</div>
+      </div>
+      
+      <div id="admin-tab" class="hidden">
+        <div class="card">
+          <div class="section-header">
+            <h3>👥 Users</h3>
+            <button class="btn btn-success btn-sm" onclick="showAddUser()">+ Add</button>
+          </div>
+          <div id="users-list" class="user-list"></div>
+        </div>
+        
+        <div class="card">
+          <div class="section-header">
+            <h3>📁 Groups</h3>
+            <button class="btn btn-success btn-sm" onclick="showAddGroup()">+ Add</button>
+          </div>
+          <div id="groups-list" class="group-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="modal-container"></div>
+  
+  <script>
+    let currentUser = null;
+    let isAdmin = false;
+    let refreshInterval = null;
+    let allContainers = [];
+    let allGroups = [];
+    
+    const $ = id => document.getElementById(id);
+    const loginView = $('login-view');
+    const dashboardView = $('dashboard-view');
+    const loginForm = $('login-form');
+    const loginError = $('login-error');
+    const usernameDisplay = $('username-display');
+    const logoutBtn = $('logout-btn');
+    const serversList = $('servers-list');
+    const serversLoading = $('servers-loading');
+    const noServers = $('no-servers');
+    const adminTabs = $('admin-tabs');
+    const dockersTab = $('dockers-tab');
+    const adminTab = $('admin-tab');
+    const passwordWarning = $('password-warning');
+    const modalContainer = $('modal-container');
+    
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/me');
+        if (res.ok) showDashboard(await res.json());
+        else showLogin();
+      } catch { showLogin(); }
+    }
+    
+    function showLogin() {
+      loginView.classList.remove('hidden');
+      dashboardView.classList.add('hidden');
+      if (refreshInterval) clearInterval(refreshInterval);
+    }
+    
+    function showDashboard(data) {
+      currentUser = data.username;
+      isAdmin = data.isAdmin;
+      loginView.classList.add('hidden');
+      dashboardView.classList.remove('hidden');
+      usernameDisplay.textContent = data.username;
+      passwordWarning.classList.toggle('hidden', !data.defaultPassword);
+      adminTabs.classList.toggle('hidden', !isAdmin);
+      loadContainers();
+      refreshInterval = setInterval(loadContainers, 5000);
+    }
+    
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        dockersTab.classList.toggle('hidden', tab !== 'dockers');
+        adminTab.classList.toggle('hidden', tab !== 'admin');
+        if (tab === 'admin') { loadUsers(); loadGroups(); }
+      });
+    });
+    
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      loginError.classList.add('hidden');
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: $('username').value, password: $('password').value })
+        });
+        const data = await res.json();
+        if (res.ok) showDashboard(data);
+        else { loginError.textContent = data.error || 'Login failed'; loginError.classList.remove('hidden'); }
+      } catch { loginError.textContent = 'Connection error'; loginError.classList.remove('hidden'); }
+    });
+    
+    logoutBtn.addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST' }); showLogin(); });
+    
+    async function loadContainers() {
+      try {
+        const res = await fetch('/api/containers');
+        if (!res.ok) { if (res.status === 401) showLogin(); return; }
+        const containers = await res.json();
+        serversLoading.classList.add('hidden');
+        
+        if (containers.length === 0) { noServers.classList.remove('hidden'); serversList.innerHTML = ''; return; }
+        
+        noServers.classList.add('hidden');
+        serversList.innerHTML = containers.map(s => `
+          <div class="server-row ${s.status}" data-server="${esc(s.name)}">
+            <div class="server-info">
+              <div class="server-name">${esc(s.name)}</div>
+              <div class="server-status">${esc(s.statusText)}</div>
+            </div>
+            <div class="server-actions">
+              <button class="action-btn start" onclick="containerAction('${esc(s.name)}','start')" ${s.status==='running'?'disabled':''} title="Start">▶</button>
+              <button class="action-btn stop" onclick="containerAction('${esc(s.name)}','stop')" ${s.status!=='running'?'disabled':''} title="Stop">⏹</button>
+              <button class="action-btn restart" onclick="containerAction('${esc(s.name)}','restart')" ${s.status!=='running'?'disabled':''} title="Restart">↻</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) { console.error(err); }
+    }
+    
+    async function containerAction(name, action) {
+      const row = document.querySelector(`[data-server="${name}"]`);
+      row.querySelectorAll('button').forEach(b => b.disabled = true);
+      try {
+        const res = await fetch(`/api/containers/${encodeURIComponent(name)}/${action}`, { method: 'POST' });
+        if (!res.ok) alert((await res.json()).error || 'Failed');
+        setTimeout(loadContainers, 1000);
+      } catch { alert('Failed'); loadContainers(); }
+    }
+    
+    // ========== ADMIN ==========
+    
+    async function loadUsers() {
+      const res = await fetch('/api/admin/users');
+      if (!res.ok) return;
+      const users = await res.json();
+      $('users-list').innerHTML = users.length ? users.map(u => `
+        <div class="user-item">
+          <div class="user-item-info">
+            <div class="user-item-name">${esc(u.username)} ${u.isAdmin ? '👑' : ''}</div>
+            <div class="user-item-meta">${u.containers.length} container${u.containers.length !== 1 ? 's' : ''}</div>
+          </div>
+          <div class="user-item-actions">
+            <button class="btn btn-ghost btn-sm" onclick="showEditUser('${esc(u.username)}')">Edit</button>
+            ${u.username !== 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${esc(u.username)}')">Delete</button>` : ''}
+          </div>
+        </div>
+      `).join('') : '<div class="no-items">No users</div>';
+    }
+    
+    async function loadGroups() {
+      const res = await fetch('/api/admin/groups');
+      if (!res.ok) return;
+      allGroups = await res.json();
+      $('groups-list').innerHTML = allGroups.length ? allGroups.map(g => `
+        <div class="group-item">
+          <div class="group-item-info">
+            <div class="group-item-name">${esc(g.name)}</div>
+            <div class="group-item-meta">${g.containers.length} container${g.containers.length !== 1 ? 's' : ''}</div>
+          </div>
+          <div class="group-item-actions">
+            <button class="btn btn-ghost btn-sm" onclick="showEditGroup('${esc(g.name)}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteGroup('${esc(g.name)}')">Delete</button>
+          </div>
+        </div>
+      `).join('') : '<div class="no-items">No groups — create one to quickly assign containers</div>';
+    }
+    
+    async function loadAllContainers(filter = '') {
+      const res = await fetch(`/api/admin/containers?filter=${encodeURIComponent(filter)}`);
+      if (res.ok) allContainers = await res.json();
+      return allContainers;
+    }
+    
+    // ========== USER MODAL ==========
+    
+    function showAddUser() { showUserModal(null); }
+    
+    async function showEditUser(username) {
+      const res = await fetch('/api/admin/users');
+      const users = await res.json();
+      const user = users.find(u => u.username === username);
+      if (user) showUserModal(user);
+    }
+    
+    async function showUserModal(user) {
+      await loadAllContainers();
+      await loadGroups();
+      const isEdit = !!user;
+      const selected = new Set(user ? user.containers : []);
+      
+      const renderContainers = () => {
+        const sorted = [...allContainers].sort((a, b) => {
+          const aSelected = selected.has(a.name);
+          const bSelected = selected.has(b.name);
+          if (aSelected && !bSelected) return -1;
+          if (!aSelected && bSelected) return 1;
+          return a.name.localeCompare(b.name);
+        });
+        
+        return sorted.map(c => `
+          <label class="checkbox-item ${selected.has(c.name) ? 'selected' : ''}">
+            <input type="checkbox" ${selected.has(c.name) ? 'checked' : ''} onchange="toggleUserContainer('${esc(c.name)}', this.checked)">
+            <span title="${esc(c.name)}">${esc(c.name)}</span>
+          </label>
+        `).join('');
+      };
+      
+      modalContainer.innerHTML = `
+        <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+          <div class="modal">
+            <h3>${isEdit ? 'Edit User' : 'Add User'}</h3>
+            <form id="user-form">
+              <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="modal-username" value="${isEdit ? esc(user.username) : ''}" ${isEdit ? 'readonly style="opacity:0.6"' : 'required'}>
+              </div>
+              <div class="form-group">
+                <label>${isEdit ? 'New Password (optional)' : 'Password'}</label>
+                <input type="password" id="modal-password" ${isEdit ? '' : 'required'}>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="modal-admin" ${user?.isAdmin ? 'checked' : ''}>
+                <label for="modal-admin">Admin privileges</label>
+              </div>
+              
+              ${allGroups.length ? `
+              <div class="groups-section">
+                <label class="form-group">Quick Add Group</label>
+                <div class="group-chips">
+                  ${allGroups.map(g => `<span class="group-chip" onclick="addGroupContainers('${esc(g.name)}')">${esc(g.name)}</span>`).join('')}
+                </div>
+              </div>
+              ` : ''}
+              
+              <div class="form-group">
+                <label>Assigned Containers</label>
+                <div class="filter-row">
+                  <input type="text" id="container-filter" placeholder="Filter..." oninput="filterUserContainers()">
+                </div>
+                <div class="checkbox-grid" id="container-grid">${renderContainers()}</div>
+              </div>
+              
+              <div style="display:flex;gap:8px;margin-top:16px">
+                <button type="submit" class="btn btn-primary" style="flex:1">${isEdit ? 'Save' : 'Create'}</button>
+                <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+      
+      window.userSelectedContainers = selected;
+      window.renderUserContainers = renderContainers;
+      
+      window.toggleUserContainer = (name, checked) => {
+        if (checked) selected.add(name);
+        else selected.delete(name);
+        $('container-grid').innerHTML = renderContainers();
+      };
+      
+      window.addGroupContainers = (groupName) => {
+        const group = allGroups.find(g => g.name === groupName);
+        if (group) {
+          group.containers.forEach(c => selected.add(c));
+          $('container-grid').innerHTML = renderContainers();
+        }
+      };
+      
+      window.filterUserContainers = () => {
+        const filter = $('container-filter').value.toLowerCase();
+        document.querySelectorAll('.checkbox-item').forEach(item => {
+          const name = item.querySelector('span').textContent.toLowerCase();
+          item.style.display = name.includes(filter) ? '' : 'none';
+        });
+      };
+      
+      $('user-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const username = $('modal-username').value;
+        const password = $('modal-password').value;
+        const isAdminChecked = $('modal-admin').checked;
+        const containers = [...selected];
+        
+        const body = { isAdmin: isAdminChecked, containers };
+        if (!isEdit) body.username = username;
+        if (password) body.password = password;
+        
+        const res = await fetch(isEdit ? `/api/admin/users/${encodeURIComponent(username)}` : '/api/admin/users', {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        
+        if (res.ok) { closeModal(); loadUsers(); }
+        else alert((await res.json()).error || 'Failed');
+      };
+    }
+    
+    async function deleteUser(username) {
+      if (!confirm(`Delete user "${username}"?`)) return;
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(username)}`, { method: 'DELETE' });
+      if (res.ok) loadUsers();
+      else alert('Failed');
+    }
+    
+    // ========== GROUP MODAL ==========
+    
+    function showAddGroup() { showGroupModal(null); }
+    
+    async function showEditGroup(name) {
+      const group = allGroups.find(g => g.name === name);
+      if (group) showGroupModal(group);
+    }
+    
+    async function showGroupModal(group) {
+      await loadAllContainers();
+      const isEdit = !!group;
+      const selected = new Set(group ? group.containers : []);
+      
+      const renderContainers = () => {
+        const sorted = [...allContainers].sort((a, b) => {
+          const aSelected = selected.has(a.name);
+          const bSelected = selected.has(b.name);
+          if (aSelected && !bSelected) return -1;
+          if (!aSelected && bSelected) return 1;
+          return a.name.localeCompare(b.name);
+        });
+        
+        return sorted.map(c => `
+          <label class="checkbox-item ${selected.has(c.name) ? 'selected' : ''}">
+            <input type="checkbox" ${selected.has(c.name) ? 'checked' : ''} onchange="toggleGroupContainer('${esc(c.name)}', this.checked)">
+            <span title="${esc(c.name)}">${esc(c.name)}</span>
+          </label>
+        `).join('');
+      };
+      
+      modalContainer.innerHTML = `
+        <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+          <div class="modal">
+            <h3>${isEdit ? 'Edit Group' : 'Add Group'}</h3>
+            <form id="group-form">
+              <div class="form-group">
+                <label>Group Name</label>
+                <input type="text" id="modal-group-name" value="${isEdit ? esc(group.name) : ''}" required placeholder="e.g., Game Servers">
+              </div>
+              
+              <div class="form-group">
+                <label>Containers in Group</label>
+                <div class="filter-row">
+                  <input type="text" id="group-filter" placeholder="Filter..." oninput="filterGroupContainers()">
+                </div>
+                <div class="checkbox-grid" id="group-container-grid">${renderContainers()}</div>
+              </div>
+              
+              <div style="display:flex;gap:8px;margin-top:16px">
+                <button type="submit" class="btn btn-primary" style="flex:1">${isEdit ? 'Save' : 'Create'}</button>
+                <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+      
+      window.toggleGroupContainer = (name, checked) => {
+        if (checked) selected.add(name);
+        else selected.delete(name);
+        $('group-container-grid').innerHTML = renderContainers();
+      };
+      
+      window.filterGroupContainers = () => {
+        const filter = $('group-filter').value.toLowerCase();
+        document.querySelectorAll('#group-container-grid .checkbox-item').forEach(item => {
+          const name = item.querySelector('span').textContent.toLowerCase();
+          item.style.display = name.includes(filter) ? '' : 'none';
+        });
+      };
+      
+      $('group-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const name = $('modal-group-name').value;
+        const containers = [...selected];
+        
+        const url = isEdit ? `/api/admin/groups/${encodeURIComponent(group.name)}` : '/api/admin/groups';
+        const body = isEdit ? { containers, newName: name !== group.name ? name : undefined } : { name, containers };
+        
+        const res = await fetch(url, {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        
+        if (res.ok) { closeModal(); loadGroups(); }
+        else alert((await res.json()).error || 'Failed');
+      };
+    }
+    
+    async function deleteGroup(name) {
+      if (!confirm(`Delete group "${name}"?`)) return;
+      const res = await fetch(`/api/admin/groups/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      if (res.ok) loadGroups();
+      else alert('Failed');
+    }
+    
+    // ========== CHANGE PASSWORD ==========
+    
+    function showChangePassword() {
+      modalContainer.innerHTML = `
+        <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+          <div class="modal">
+            <h3>Change Password</h3>
+            <form id="password-form">
+              <div class="form-group">
+                <label>New Password</label>
+                <input type="password" id="new-password" required>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:16px">
+                <button type="submit" class="btn btn-primary" style="flex:1">Change</button>
+                <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+      
+      $('password-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const res = await fetch(`/api/admin/users/${encodeURIComponent(currentUser)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: $('new-password').value })
+        });
+        if (res.ok) { closeModal(); passwordWarning.classList.add('hidden'); alert('Password changed!'); }
+        else alert('Failed');
+      };
+    }
+    
+    function closeModal() { modalContainer.innerHTML = ''; }
+    function esc(s) { return s ? String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]) : ''; }
+    
+    checkAuth();
+  </script>
+</body>
+</html>
