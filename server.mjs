@@ -223,6 +223,16 @@ let config;
     res.json({ success: true });
   });
 
+  // ==================== GROUPS API (all users) ====================
+
+  app.get('/api/groups', requireAuth, (req, res) => {
+    const groups = Object.entries(config.groups || {}).map(([name, containers]) => ({
+      name,
+      containers: containers || []
+    }));
+    res.json(groups);
+  });
+
   // ==================== ADMIN API ====================
 
   app.get('/api/admin/containers', requireAdmin, async (req, res) => {

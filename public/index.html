@@ -146,6 +146,39 @@
     .user-bar span { color: var(--muted); }
     .user-bar strong { color: var(--text); }
     
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .filter-btn {
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    
+    .filter-btn:hover { color: var(--text); border-color: var(--muted); }
+    .filter-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+    
+    .group-filter-select {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    
     .server-list { display: flex; flex-direction: column; gap: 8px; }
     
     .server-row {
@@ -364,6 +397,14 @@
       </div>
       
       <div id="dockers-tab">
+        <div id="filter-bar" class="filter-bar hidden">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn" data-filter="running">Online</button>
+          <button class="filter-btn" data-filter="stopped">Stopped</button>
+          <select id="group-filter" class="group-filter-select">
+            <option value="">All Groups</option>
+          </select>
+        </div>
         <div id="servers-loading" class="loading">Loading containers...</div>
         <div id="servers-list" class="server-list"></div>
         <div id="no-servers" class="no-items hidden">No containers assigned to your account.</div>
@@ -408,6 +449,9 @@
     let refreshInterval = null;
     let allContainers = [];
     let allGroups = [];
+    let currentFilter = 'all';
+    let currentGroupFilter = '';
+    let cachedContainers = [];
     
     const $ = id => document.getElementById(id);
     const loginView = $('login-view');
@@ -522,26 +566,91 @@
         const res = await fetch('/api/containers');
         if (!res.ok) { if (res.status === 401) showLogin(); return; }
         const containers = await res.json();
+        cachedContainers = containers;
         serversLoading.classList.add('hidden');
+        
+        // Show filter bar if we have containers
+        $('filter-bar').classList.toggle('hidden', containers.length === 0);
         
         if (containers.length === 0) { noServers.classList.remove('hidden'); serversList.innerHTML = ''; return; }
         
-        noServers.classList.add('hidden');
-        serversList.innerHTML = containers.map(s => `
-          <div class="server-row ${s.status}" data-server="${esc(s.name)}">
-            <div class="server-info">
-              <div class="server-name">${esc(s.name)}</div>
-              <div class="server-status">${esc(s.statusText)}</div>
-            </div>
-            <div class="server-actions">
-              <button class="action-btn start" onclick="containerAction('${esc(s.name)}','start')" ${s.status==='running'?'disabled':''} title="Start">▶</button>
-              <button class="action-btn stop" onclick="containerAction('${esc(s.name)}','stop')" ${s.status!=='running'?'disabled':''} title="Stop">⏹</button>
-              <button class="action-btn restart" onclick="containerAction('${esc(s.name)}','restart')" ${s.status!=='running'?'disabled':''} title="Restart">↻</button>
-            </div>
-          </div>
-        `).join('');
+        // Load groups for filter dropdown (first time only)
+        if ($('group-filter').options.length <= 1) {
+          loadGroupsForFilter();
+        }
+        
+        renderContainerList();
       } catch (err) { console.error(err); }
     }
+    
+    function renderContainerList() {
+      // Sort alphabetically
+      let filtered = [...cachedContainers].sort((a, b) => a.name.localeCompare(b.name));
+      
+      // Apply status filter
+      if (currentFilter === 'running') {
+        filtered = filtered.filter(c => c.status === 'running');
+      } else if (currentFilter === 'stopped') {
+        filtered = filtered.filter(c => c.status !== 'running');
+      }
+      
+      // Apply group filter
+      if (currentGroupFilter && allGroups.length) {
+        const group = allGroups.find(g => g.name === currentGroupFilter);
+        if (group) {
+          filtered = filtered.filter(c => group.containers.includes(c.name));
+        }
+      }
+      
+      if (filtered.length === 0) {
+        noServers.classList.remove('hidden');
+        noServers.textContent = 'No containers match the current filter.';
+        serversList.innerHTML = '';
+        return;
+      }
+      
+      noServers.classList.add('hidden');
+      serversList.innerHTML = filtered.map(s => `
+        <div class="server-row ${s.status}" data-server="${esc(s.name)}">
+          <div class="server-info">
+            <div class="server-name">${esc(s.name)}</div>
+            <div class="server-status">${esc(s.statusText)}</div>
+          </div>
+          <div class="server-actions">
+            <button class="action-btn start" onclick="containerAction('${esc(s.name)}','start')" ${s.status==='running'?'disabled':''} title="Start">▶</button>
+            <button class="action-btn stop" onclick="containerAction('${esc(s.name)}','stop')" ${s.status!=='running'?'disabled':''} title="Stop">⏹</button>
+            <button class="action-btn restart" onclick="containerAction('${esc(s.name)}','restart')" ${s.status!=='running'?'disabled':''} title="Restart">↻</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    async function loadGroupsForFilter() {
+      try {
+        const res = await fetch('/api/groups');
+        if (res.ok) {
+          allGroups = await res.json();
+          const select = $('group-filter');
+          select.innerHTML = '<option value="">All Groups</option>' + 
+            allGroups.map(g => `<option value="${esc(g.name)}">${esc(g.name)}</option>`).join('');
+        }
+      } catch (err) { console.error(err); }
+    }
+    
+    // Filter event listeners
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderContainerList();
+      });
+    });
+    
+    $('group-filter').addEventListener('change', (e) => {
+      currentGroupFilter = e.target.value;
+      renderContainerList();
+    });
     
     async function containerAction(name, action) {
       const row = document.querySelector(`[data-server="${name}"]`);

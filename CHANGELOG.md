@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.0] - 2026-02-08
+
+### Added
+- **Container filters** — filter by Online, Stopped, or by Group
+- **Alphabetical sorting** — container list now sorted A-Z
+
 ## [1.2.0] - 2026-02-08
 
 ### Added
