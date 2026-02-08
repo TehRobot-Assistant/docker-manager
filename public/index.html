@@ -32,8 +32,20 @@
     .container { max-width: 600px; margin: 0 auto; padding: 16px; }
     
     header { text-align: center; padding: 24px 0 16px; }
+    header .logo { width: 80px; height: 80px; margin-bottom: 12px; }
     header h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 4px; }
     header .subtitle { color: var(--muted); font-size: 0.85rem; }
+    
+    .admin-message {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid var(--accent);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      text-align: center;
+      font-size: 0.9rem;
+    }
     
     .warning-banner {
       background: rgba(245, 158, 11, 0.15);
@@ -312,7 +324,8 @@
 <body>
   <div class="container">
     <header>
-      <h1>🐳 Docker Manager</h1>
+      <img src="/icon.png" alt="Docker Manager" class="logo">
+      <h1>Docker Manager</h1>
       <p class="subtitle">Start, stop, and restart your containers remotely</p>
     </header>
     
@@ -334,6 +347,8 @@
     </div>
     
     <div id="dashboard-view" class="hidden">
+      <div id="admin-message" class="admin-message hidden"></div>
+      
       <div id="password-warning" class="warning-banner hidden">
         ⚠️ Default password in use. <a href="#" onclick="showChangePassword()">Change it now</a>
       </div>
@@ -355,6 +370,17 @@
       </div>
       
       <div id="admin-tab" class="hidden">
+        <div class="card">
+          <div class="section-header">
+            <h3>📢 Admin Message</h3>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <input type="text" id="admin-message-input" placeholder="Enter a message to display to all users..." style="margin-bottom:8px">
+            <button class="btn btn-primary btn-sm" onclick="saveAdminMessage()">Save Message</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearAdminMessage()">Clear</button>
+          </div>
+        </div>
+        
         <div class="card">
           <div class="section-header">
             <h3>👥 Users</h3>
@@ -398,6 +424,7 @@
     const adminTab = $('admin-tab');
     const passwordWarning = $('password-warning');
     const modalContainer = $('modal-container');
+    const adminMessageDiv = $('admin-message');
     
     async function checkAuth() {
       try {
@@ -422,7 +449,44 @@
       passwordWarning.classList.toggle('hidden', !data.defaultPassword);
       adminTabs.classList.toggle('hidden', !isAdmin);
       loadContainers();
+      loadAdminMessage();
       refreshInterval = setInterval(loadContainers, 5000);
+    }
+    
+    async function loadAdminMessage() {
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const { adminMessage } = await res.json();
+          if (adminMessage) {
+            adminMessageDiv.textContent = adminMessage;
+            adminMessageDiv.classList.remove('hidden');
+          } else {
+            adminMessageDiv.classList.add('hidden');
+          }
+          if ($('admin-message-input')) {
+            $('admin-message-input').value = adminMessage || '';
+          }
+        }
+      } catch (err) { console.error(err); }
+    }
+    
+    async function saveAdminMessage() {
+      const message = $('admin-message-input').value;
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminMessage: message })
+      });
+      if (res.ok) {
+        loadAdminMessage();
+        alert('Message saved!');
+      } else alert('Failed to save');
+    }
+    
+    function clearAdminMessage() {
+      $('admin-message-input').value = '';
+      saveAdminMessage();
     }
     
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -432,7 +496,7 @@
         const tab = btn.dataset.tab;
         dockersTab.classList.toggle('hidden', tab !== 'dockers');
         adminTab.classList.toggle('hidden', tab !== 'admin');
-        if (tab === 'admin') { loadUsers(); loadGroups(); }
+        if (tab === 'admin') { loadUsers(); loadGroups(); loadAdminMessage(); }
       });
     });
     

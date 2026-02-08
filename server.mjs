@@ -208,6 +208,21 @@ let config;
     return app._router.handle(req, res);
   });
 
+  // ==================== SETTINGS API ====================
+
+  app.get('/api/settings', (req, res) => {
+    res.json({ adminMessage: config.adminMessage || '' });
+  });
+
+  app.put('/api/admin/settings', requireAdmin, (req, res) => {
+    const { adminMessage } = req.body;
+    if (typeof adminMessage === 'string') {
+      config.adminMessage = adminMessage;
+      saveConfig(config);
+    }
+    res.json({ success: true });
+  });
+
   // ==================== ADMIN API ====================
 
   app.get('/api/admin/containers', requireAdmin, async (req, res) => {
