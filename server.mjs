@@ -208,6 +208,53 @@ let config;
     return app._router.handle(req, res);
   });
 
+  // ==================== LOGS API ====================
+
+  app.get('/api/containers/:name/logs', requireAuth, async (req, res) => {
+    const { name } = req.params;
+    const { tail = 100, timestamps = 'true' } = req.query;
+    const allowedContainers = getUserContainers(req.session.user);
+    
+    if (allowedContainers !== '__all__' && !allowedContainers.includes(name)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    try {
+      const containers = await docker.listContainers({ all: true });
+      const containerInfo = containers.find(c => c.Names[0]?.replace(/^\//, '') === name);
+      
+      if (!containerInfo) return res.status(404).json({ error: 'Container not found' });
+      
+      const container = docker.getContainer(containerInfo.Id);
+      const logs = await container.logs({
+        stdout: true,
+        stderr: true,
+        tail: parseInt(tail) || 100,
+        timestamps: timestamps === 'true'
+      });
+      
+      // Docker logs come with stream headers (8 bytes per line), strip them
+      const cleanLogs = logs.toString('utf8')
+        .split('\n')
+        .map(line => {
+          // Remove docker stream header (first 8 bytes if present)
+          if (line.length > 8) {
+            const headerByte = line.charCodeAt(0);
+            if (headerByte === 1 || headerByte === 2) {
+              return line.substring(8);
+            }
+          }
+          return line;
+        })
+        .join('\n');
+      
+      res.json({ logs: cleanLogs, container: name });
+    } catch (err) {
+      console.error(`Error getting logs for ${name}:`, err);
+      res.status(500).json({ error: `Failed to get logs: ${err.message}` });
+    }
+  });
+
   // ==================== SETTINGS API ====================
 
   app.get('/api/settings', (req, res) => {

@@ -30,13 +30,20 @@ After logging in, you'll see all the containers assigned to you. Each one shows:
 
 ### 3. Control Your Containers
 
-Each container has three buttons:
+Each container has four buttons:
 
 | Button | What it does |
 |--------|--------------|
+| 📋 **Logs** | View recent output/logs from the container |
 | ▶️ **Start** | Turns the container on |
 | ⏹️ **Stop** | Shuts it down gracefully |
 | 🔄 **Restart** | Stops and starts it again (useful if something's stuck) |
+
+### 5. Viewing Logs
+Click the **📋 Logs** button to see what your container is doing:
+- Choose how many lines to show (50-1000)
+- Enable **Auto-refresh** to watch logs live
+- Click **Refresh** to manually update
 
 ### 4. Using Filters
 At the top of the page you can filter by:

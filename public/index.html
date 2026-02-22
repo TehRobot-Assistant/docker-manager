@@ -223,6 +223,53 @@
     .action-btn.start:hover:not(:disabled) { color: var(--success); }
     .action-btn.stop:hover:not(:disabled) { color: var(--danger); }
     .action-btn.restart:hover:not(:disabled) { color: var(--warning); }
+    .action-btn.logs:hover:not(:disabled) { color: var(--accent); }
+    
+    .logs-container {
+      background: #0d1117;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.75rem;
+      line-height: 1.4;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #c9d1d9;
+    }
+    
+    .logs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .logs-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    
+    .logs-controls select {
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+    
+    .auto-refresh-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
     
     .user-list, .group-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
     
@@ -617,6 +664,7 @@
             <div class="server-status">${esc(s.statusText)}</div>
           </div>
           <div class="server-actions">
+            <button class="action-btn logs" onclick="showLogs('${esc(s.name)}')" title="Logs">📋</button>
             <button class="action-btn start" onclick="containerAction('${esc(s.name)}','start')" ${s.status==='running'?'disabled':''} title="Start">▶</button>
             <button class="action-btn stop" onclick="containerAction('${esc(s.name)}','stop')" ${s.status!=='running'?'disabled':''} title="Stop">⏹</button>
             <button class="action-btn restart" onclick="containerAction('${esc(s.name)}','restart')" ${s.status!=='running'?'disabled':''} title="Restart">↻</button>
@@ -969,8 +1017,89 @@
       };
     }
     
-    function closeModal() { modalContainer.innerHTML = ''; }
+    function closeModal() { 
+      modalContainer.innerHTML = ''; 
+      if (window.logsRefreshInterval) {
+        clearInterval(window.logsRefreshInterval);
+        window.logsRefreshInterval = null;
+      }
+    }
     function esc(s) { return s ? String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]) : ''; }
+    
+    // ========== LOGS ==========
+    
+    let currentLogsContainer = null;
+    let logsAutoRefresh = false;
+    let logsTail = 100;
+    
+    async function showLogs(containerName) {
+      currentLogsContainer = containerName;
+      logsAutoRefresh = false;
+      logsTail = 100;
+      
+      modalContainer.innerHTML = `
+        <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+          <div class="modal" style="max-width: 700px;">
+            <div class="logs-header">
+              <h3>📋 Logs: ${esc(containerName)}</h3>
+              <div class="logs-controls">
+                <select id="logs-tail" onchange="updateLogsTail(this.value)">
+                  <option value="50">50 lines</option>
+                  <option value="100" selected>100 lines</option>
+                  <option value="200">200 lines</option>
+                  <option value="500">500 lines</option>
+                  <option value="1000">1000 lines</option>
+                </select>
+                <label class="auto-refresh-toggle">
+                  <input type="checkbox" id="logs-auto-refresh" onchange="toggleLogsAutoRefresh(this.checked)">
+                  Auto-refresh
+                </label>
+                <button class="btn btn-ghost btn-sm" onclick="fetchLogs()">↻ Refresh</button>
+              </div>
+            </div>
+            <div class="logs-container" id="logs-content">Loading...</div>
+            <div style="margin-top:12px;text-align:right">
+              <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      await fetchLogs();
+    }
+    
+    async function fetchLogs() {
+      if (!currentLogsContainer) return;
+      
+      try {
+        const res = await fetch(`/api/containers/${encodeURIComponent(currentLogsContainer)}/logs?tail=${logsTail}`);
+        if (!res.ok) {
+          $('logs-content').textContent = 'Failed to load logs';
+          return;
+        }
+        const data = await res.json();
+        const logsEl = $('logs-content');
+        logsEl.textContent = data.logs || '(no logs)';
+        logsEl.scrollTop = logsEl.scrollHeight;
+      } catch (err) {
+        $('logs-content').textContent = 'Error: ' + err.message;
+      }
+    }
+    
+    function updateLogsTail(value) {
+      logsTail = parseInt(value);
+      fetchLogs();
+    }
+    
+    function toggleLogsAutoRefresh(enabled) {
+      logsAutoRefresh = enabled;
+      if (enabled) {
+        window.logsRefreshInterval = setInterval(fetchLogs, 3000);
+      } else if (window.logsRefreshInterval) {
+        clearInterval(window.logsRefreshInterval);
+        window.logsRefreshInterval = null;
+      }
+    }
     
     checkAuth();
   </script>

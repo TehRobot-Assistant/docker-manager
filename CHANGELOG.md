@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0] - 2026-02-22
+
+### Added
+- **Container logs** — view logs from any container with a single click
+- **Tail selection** — choose 50, 100, 200, 500, or 1000 lines
+- **Auto-refresh** — optional 3-second auto-refresh for live monitoring
+
 ## [1.3.0] - 2026-02-08
 
 ### Added
