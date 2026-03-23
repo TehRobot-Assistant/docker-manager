@@ -49,35 +49,55 @@
       }
     }
     
-    /* Theme toggle */
+    /* Theme toggle pill */
     .theme-toggle {
       display: flex;
-      gap: 4px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 4px;
+      align-items: center;
+      background: var(--border);
+      border-radius: 999px;
+      padding: 3px;
+      position: relative;
+      width: 84px;
+      height: 28px;
     }
+    
+    .theme-toggle .knob {
+      position: absolute;
+      width: 24px;
+      height: 22px;
+      background: var(--card);
+      border-radius: 999px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      transition: left 0.25s ease;
+      left: 30px;
+    }
+    
+    .theme-toggle[data-active="light"] .knob { left: 3px; }
+    .theme-toggle[data-active="auto"] .knob { left: 30px; }
+    .theme-toggle[data-active="dark"] .knob { left: 57px; }
     
     .theme-toggle button {
-      padding: 6px 10px;
+      flex: 1;
       border: none;
-      border-radius: 6px;
       background: transparent;
-      color: var(--muted);
-      font-size: 14px;
+      font-size: 12px;
       cursor: pointer;
-      transition: all 0.15s;
+      z-index: 1;
+      padding: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
     }
     
-    .theme-toggle button:hover {
-      color: var(--text);
-    }
+    .theme-toggle button.sun { color: #a1a1aa; }
+    .theme-toggle button.auto { color: #a1a1aa; }
+    .theme-toggle button.moon { color: #a1a1aa; }
     
-    .theme-toggle button.active {
-      background: var(--border);
-      color: var(--text);
-    }
+    .theme-toggle[data-active="light"] button.sun { color: #f59e0b; }
+    .theme-toggle[data-active="auto"] button.auto { color: var(--text); }
+    .theme-toggle[data-active="dark"] button.moon { color: #60a5fa; }
     
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
@@ -468,10 +488,11 @@
 <body>
   <div class="container">
     <div style="display: flex; justify-content: flex-end; padding: 16px 0 0;">
-      <div class="theme-toggle" id="theme-toggle">
-        <button data-theme="light" title="Light">☀️</button>
-        <button data-theme="dark" title="Dark">🌙</button>
-        <button data-theme="auto" title="Auto" class="active">💻</button>
+      <div class="theme-toggle" id="theme-toggle" data-active="auto">
+        <button class="sun" data-theme="light" title="Light">☀︎</button>
+        <button class="auto" data-theme="auto" title="Auto">◐</button>
+        <button class="moon" data-theme="dark" title="Dark">☽</button>
+        <div class="knob"></div>
       </div>
     </div>
     <header>
@@ -568,23 +589,16 @@
       document.documentElement.setAttribute('data-theme', savedTheme);
       
       document.addEventListener('DOMContentLoaded', () => {
-        const toggleContainer = document.getElementById('theme-toggle');
-        const buttons = toggleContainer.querySelectorAll('button');
+        const toggle = document.getElementById('theme-toggle');
+        toggle.setAttribute('data-active', savedTheme);
         
-        // Set initial active state
-        buttons.forEach(btn => {
-          if (btn.dataset.theme === savedTheme) btn.classList.add('active');
-          else btn.classList.remove('active');
-        });
-        
-        // Handle clicks
-        toggleContainer.addEventListener('click', (e) => {
-          if (e.target.tagName !== 'BUTTON') return;
-          const theme = e.target.dataset.theme;
+        toggle.addEventListener('click', (e) => {
+          const btn = e.target.closest('button');
+          if (!btn) return;
+          const theme = btn.dataset.theme;
           document.documentElement.setAttribute('data-theme', theme);
           localStorage.setItem('theme', theme);
-          buttons.forEach(btn => btn.classList.remove('active'));
-          e.target.classList.add('active');
+          toggle.setAttribute('data-active', theme);
         });
       });
     })();
