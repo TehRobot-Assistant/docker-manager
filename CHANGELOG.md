@@ -2,6 +2,10 @@
 
 ## [1.5.0] - 2026-03-23
 
+### Added
+- **Night mode** — true black theme for OLED displays, toggle in user bar (🌙/☀️)
+- Persists preference in localStorage
+
 ### Changed
 - **Visual refresh** — neutral zinc tones instead of blue-grey
 - Subtle card borders throughout
