@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.0] - 2026-03-23
+
+### Changed
+- **Visual refresh** — neutral zinc tones instead of blue-grey
+- Subtle card borders throughout
+- Flatter button styles (no bounce effect)
+- Cleaner tab styling with inverted active state
+- Less saturated accent color
+
 ## [1.4.0] - 2026-02-22
 
 ### Added

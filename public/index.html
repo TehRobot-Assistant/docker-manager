@@ -6,17 +6,17 @@
   <title>Docker Manager</title>
   <style>
     :root {
-      --bg: #0f172a;
-      --card: #1e293b;
-      --card-hover: #334155;
-      --border: #334155;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
+      --bg: #18181b;
+      --card: #27272a;
+      --card-hover: #323236;
+      --border: #3f3f46;
+      --accent: #0ea5e9;
+      --accent-hover: #0284c7;
       --success: #22c55e;
-      --danger: #ef4444;
-      --warning: #f59e0b;
-      --text: #f1f5f9;
-      --muted: #94a3b8;
+      --danger: #dc2626;
+      --warning: #ca8a04;
+      --text: #fafafa;
+      --muted: #a1a1aa;
     }
     
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -61,32 +61,34 @@
     
     .tabs {
       display: flex;
-      gap: 8px;
+      gap: 4px;
       margin-bottom: 16px;
       background: var(--card);
+      border: 1px solid var(--border);
       padding: 4px;
-      border-radius: 10px;
+      border-radius: 8px;
     }
     
     .tab-btn {
       flex: 1;
       padding: 10px;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       background: transparent;
       color: var(--muted);
       font-size: 0.9rem;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
     
-    .tab-btn.active { background: var(--accent); color: white; }
+    .tab-btn.active { background: var(--text); color: var(--bg); }
     .tab-btn:hover:not(.active) { color: var(--text); }
     
     .card {
       background: var(--card);
-      border-radius: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
       padding: 16px;
       margin-bottom: 12px;
     }
@@ -115,12 +117,12 @@
       font-size: 0.85rem;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: background 0.15s, opacity 0.15s;
     }
     
-    .btn:hover { transform: translateY(-1px); }
-    .btn:active { transform: translateY(0); }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn:hover { opacity: 0.9; }
+    .btn:active { opacity: 0.8; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     
     .btn-primary { background: var(--accent); color: white; }
     .btn-primary:hover { background: var(--accent-hover); }
@@ -139,7 +141,8 @@
       margin-bottom: 16px;
       padding: 12px 14px;
       background: var(--card);
-      border-radius: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
       font-size: 0.9rem;
     }
     
@@ -187,12 +190,13 @@
       gap: 12px;
       padding: 12px 14px;
       background: var(--card);
-      border-radius: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
       border-left: 3px solid var(--muted);
       transition: background 0.15s;
     }
     
-    .server-row:hover { background: var(--card-hover); }
+    .server-row:hover { background: var(--card-hover); border-color: var(--muted); }
     .server-row.running { border-left-color: var(--success); }
     .server-row.exited, .server-row.stopped { border-left-color: var(--danger); }
     .server-row.restarting { border-left-color: var(--warning); }
