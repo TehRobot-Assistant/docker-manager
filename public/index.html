@@ -19,6 +19,20 @@
       --muted: #a1a1aa;
     }
     
+    [data-theme="night"] {
+      --bg: #000000;
+      --card: #0a0a0a;
+      --card-hover: #141414;
+      --border: #262626;
+      --accent: #38bdf8;
+      --accent-hover: #0ea5e9;
+      --success: #4ade80;
+      --danger: #f87171;
+      --warning: #fbbf24;
+      --text: #ffffff;
+      --muted: #737373;
+    }
+    
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
@@ -439,7 +453,10 @@
       
       <div class="user-bar">
         <span>Signed in as <strong id="username-display"></strong></span>
-        <button class="btn btn-ghost btn-sm" id="logout-btn">Sign Out</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-ghost btn-sm" id="theme-toggle" title="Toggle night mode">🌙</button>
+          <button class="btn btn-ghost btn-sm" id="logout-btn">Sign Out</button>
+        </div>
       </div>
       
       <div id="admin-tabs" class="tabs hidden">
@@ -511,6 +528,7 @@
     const loginError = $('login-error');
     const usernameDisplay = $('username-display');
     const logoutBtn = $('logout-btn');
+    const themeToggle = $('theme-toggle');
     const serversList = $('servers-list');
     const serversLoading = $('servers-loading');
     const noServers = $('no-servers');
@@ -611,6 +629,18 @@
     });
     
     logoutBtn.addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST' }); showLogin(); });
+    
+    // Theme toggle
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+    themeToggle.textContent = savedTheme === 'night' ? '☀️' : '🌙';
+    themeToggle.addEventListener('click', () => {
+      const isNight = document.documentElement.getAttribute('data-theme') === 'night';
+      const newTheme = isNight ? '' : 'night';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      themeToggle.textContent = newTheme === 'night' ? '☀️' : '🌙';
+    });
     
     async function loadContainers() {
       try {
