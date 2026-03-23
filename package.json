@@ -1,6 +1,6 @@
 {
   "name": "docker-manager",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Simple web panel to start/stop/restart Docker game servers",
   "main": "server.mjs",
   "type": "module",

@@ -1,10 +1,13 @@
 # Changelog
 
-## [1.5.0] - 2026-03-23
+## [1.5.1] - 2026-03-23
 
-### Added
-- **Night mode** — true black theme for OLED displays, toggle in user bar (🌙/☀️)
-- Persists preference in localStorage
+### Changed
+- **Light mode default** — proper light theme with dark toggle
+- **Pill toggle switch** — sun/moon toggle fixed to top-right, visible on all pages including login
+- Removed DockerHub from CI workflow (GHCR only)
+
+## [1.5.0] - 2026-03-23
 
 ### Changed
 - **Visual refresh** — neutral zinc tones instead of blue-grey
