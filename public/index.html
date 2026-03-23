@@ -6,32 +6,96 @@
   <title>Docker Manager</title>
   <style>
     :root {
-      --bg: #18181b;
-      --card: #27272a;
-      --card-hover: #323236;
-      --border: #3f3f46;
-      --accent: #0ea5e9;
-      --accent-hover: #0284c7;
-      --success: #22c55e;
+      --bg: #f4f4f5;
+      --card: #ffffff;
+      --card-hover: #fafafa;
+      --border: #e4e4e7;
+      --accent: #0284c7;
+      --accent-hover: #0369a1;
+      --success: #16a34a;
       --danger: #dc2626;
       --warning: #ca8a04;
+      --text: #18181b;
+      --muted: #71717a;
+    }
+    
+    [data-theme="dark"] {
+      --bg: #09090b;
+      --card: #18181b;
+      --card-hover: #27272a;
+      --border: #27272a;
+      --accent: #0ea5e9;
+      --accent-hover: #38bdf8;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warning: #eab308;
       --text: #fafafa;
       --muted: #a1a1aa;
     }
     
-    [data-theme="night"] {
-      --bg: #000000;
-      --card: #0a0a0a;
-      --card-hover: #141414;
-      --border: #262626;
-      --accent: #38bdf8;
-      --accent-hover: #0ea5e9;
-      --success: #4ade80;
-      --danger: #f87171;
-      --warning: #fbbf24;
-      --text: #ffffff;
-      --muted: #737373;
+    /* Theme toggle switch */
+    .theme-switch {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 1000;
     }
+    
+    .theme-switch input {
+      display: none;
+    }
+    
+    .theme-switch label {
+      display: flex;
+      align-items: center;
+      width: 64px;
+      height: 32px;
+      background: var(--border);
+      border-radius: 32px;
+      padding: 4px;
+      cursor: pointer;
+      transition: background 0.3s;
+      position: relative;
+    }
+    
+    .theme-switch .knob {
+      width: 24px;
+      height: 24px;
+      background: var(--card);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: transform 0.3s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .theme-switch input:checked + label .knob {
+      transform: translateX(32px);
+    }
+    
+    .theme-switch .sun,
+    .theme-switch .moon {
+      position: absolute;
+      font-size: 12px;
+      transition: opacity 0.3s;
+    }
+    
+    .theme-switch .sun {
+      left: 8px;
+      opacity: 0.4;
+    }
+    
+    .theme-switch .moon {
+      right: 8px;
+      opacity: 0.4;
+    }
+    
+    .theme-switch input:checked + label .sun { opacity: 0.4; }
+    .theme-switch input:checked + label .moon { opacity: 1; }
+    .theme-switch input:not(:checked) + label .sun { opacity: 1; }
+    .theme-switch input:not(:checked) + label .moon { opacity: 0.4; }
     
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
@@ -420,6 +484,14 @@
   </style>
 </head>
 <body>
+  <div class="theme-switch">
+    <input type="checkbox" id="theme-toggle">
+    <label for="theme-toggle">
+      <span class="sun">☀️</span>
+      <span class="moon">🌙</span>
+      <div class="knob"></div>
+    </label>
+  </div>
   <div class="container">
     <header>
       <img src="/icon.png" alt="Docker Manager" class="logo">
@@ -453,10 +525,7 @@
       
       <div class="user-bar">
         <span>Signed in as <strong id="username-display"></strong></span>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn btn-ghost btn-sm" id="theme-toggle" title="Toggle night mode">🌙</button>
-          <button class="btn btn-ghost btn-sm" id="logout-btn">Sign Out</button>
-        </div>
+        <button class="btn btn-ghost btn-sm" id="logout-btn">Sign Out</button>
       </div>
       
       <div id="admin-tabs" class="tabs hidden">
@@ -512,6 +581,21 @@
   <div id="modal-container"></div>
   
   <script>
+    // Theme toggle - runs immediately
+    (function() {
+      const toggle = document.getElementById('theme-toggle');
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        toggle.checked = true;
+      }
+      toggle.addEventListener('change', () => {
+        const isDark = toggle.checked;
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : '');
+        localStorage.setItem('theme', isDark ? 'dark' : '');
+      });
+    })();
+    
     let currentUser = null;
     let isAdmin = false;
     let refreshInterval = null;
@@ -528,7 +612,6 @@
     const loginError = $('login-error');
     const usernameDisplay = $('username-display');
     const logoutBtn = $('logout-btn');
-    const themeToggle = $('theme-toggle');
     const serversList = $('servers-list');
     const serversLoading = $('servers-loading');
     const noServers = $('no-servers');
@@ -629,18 +712,6 @@
     });
     
     logoutBtn.addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST' }); showLogin(); });
-    
-    // Theme toggle
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
-    themeToggle.textContent = savedTheme === 'night' ? '☀️' : '🌙';
-    themeToggle.addEventListener('click', () => {
-      const isNight = document.documentElement.getAttribute('data-theme') === 'night';
-      const newTheme = isNight ? '' : 'night';
-      document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
-      themeToggle.textContent = newTheme === 'night' ? '☀️' : '🌙';
-    });
     
     async function loadContainers() {
       try {
