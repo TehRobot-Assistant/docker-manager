@@ -1,7 +1,7 @@
 FROM node:20-alpine
 
-LABEL org.opencontainers.image.source="https://github.com/TehRobot-Assistant/game-server-panel"
-LABEL org.opencontainers.image.description="Simple web panel to start/stop/restart Docker game servers"
+LABEL org.opencontainers.image.source="https://github.com/TehRobot-Assistant/docker-manager"
+LABEL org.opencontainers.image.description="Manage Docker containers remotely with secure login and user permissions"
 LABEL org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app

@@ -12,25 +12,25 @@
 
 ## Features
 
-- 🔐 **Secure login** — bcrypt passwords, session auth, change default on first run
-- 👥 **User management** — create users, assign only the containers they need
-- 📁 **Container groups** — bundle containers (e.g., "Game Servers") for one-click assignment
-- 🎮 **Per-user access** — users only see their assigned containers
-- ▶️ **Start / Stop / Restart** — clean UI with obvious buttons
-- 📊 **Live status** — auto-refreshes every 5 seconds
-- 📱 **Mobile-friendly** — works great on phones
-- 🐳 **Direct Docker API** — no Docker-in-Docker nonsense
-- ⚙️ **Auto-config** — creates config on first boot
+- **Secure login** — bcrypt passwords, session auth, change default on first run
+- **User management** — create users, assign only the containers they need
+- **Container groups** — bundle containers (e.g., "Game Servers") for one-click assignment
+- **Per-user access** — users only see their assigned containers
+- **Start / Stop / Restart** — clean UI with obvious buttons
+- **Live container logs** — view logs directly in the browser
+- **Live status** — auto-refreshes every 5 seconds
+- **Mobile-friendly** — works great on phones
+- **Direct Docker API** — no Docker-in-Docker nonsense
+- **Auto-config** — creates config on first boot
 
 ## Quick Start
 
 ### Docker Compose (Recommended)
 
 ```yaml
-version: '3.8'
 services:
   docker-manager:
-    image: ghcr.io/tehrobot-assistant/docker-manager:latest
+    image: tehrobot/docker-manager:latest
     container_name: docker-manager
     ports:
       - "3000:3000"
@@ -38,12 +38,14 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./config:/config
     environment:
+      - PORT=3000
       - ADMIN_PASSWORD=changeme
+      - CONFIG_PATH=/config
     restart: unless-stopped
 ```
 
 ```bash
-docker-compose up -d
+docker compose up -d
 # Open http://localhost:3000
 # Login: admin / changeme
 ```
@@ -57,7 +59,7 @@ docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -v $(pwd)/config:/config \
   -e ADMIN_PASSWORD=changeme \
-  ghcr.io/tehrobot-assistant/docker-manager:latest
+  tehrobot/docker-manager:latest
 ```
 
 ### Run Locally
@@ -102,23 +104,22 @@ Create container groups for quick assignment:
 
 ## Unraid Installation
 
-*Compatible with Unraid 6.10.0-rc1 and newer.*
+### Option A: Search Docker Hub
 
-### Option A: Community Applications
+1. Go to **Apps** tab and search **TehRobot**
+2. Find **docker-manager** and click **Install**
+3. Set your port, appdata path, and admin password
+4. Click **Apply**
 
-1. Download the [template XML](https://raw.githubusercontent.com/TehRobot-Assistant/docker-manager/main/unraid-template/docker-manager.xml)
-2. Save to: `/boot/config/plugins/community.applications/private/docker-manager.xml`
-3. Go to **Apps** → search "docker-manager" in User Templates
-4. Click **Install**
+### Option B: Docker Tab (Manual)
 
-### Option B: Docker Tab
-
-1. Go to **Docker** → **Add Container**
-2. Repository: `ghcr.io/tehrobot-assistant/docker-manager:latest`
-3. Port: `3000`
-4. Path: `/config` → `/mnt/user/appdata/docker-manager`
-5. Path: `/var/run/docker.sock` → `/var/run/docker.sock` (Read Only)
-6. Variable: `ADMIN_PASSWORD` → your password
+1. Go to **Docker** > **Add Container**
+2. Repository: `tehrobot/docker-manager:latest`
+3. Port: `3000` > `3000`
+4. Path: `/config` > `/mnt/user/appdata/docker-manager`
+5. Path: `/var/run/docker.sock` > `/var/run/docker.sock` (Read Only)
+6. Variable: `ADMIN_PASSWORD` > your password
+7. Click **Apply**
 
 ## Environment Variables
 
@@ -156,6 +157,10 @@ Config is auto-created at `/config/config.json` on first run:
 - Docker socket access = full Docker control — only expose on trusted networks
 - Mount Docker socket read-only (`:ro`) for extra safety
 - Users can only control their assigned containers
+
+## Docker Hub
+
+Available on Docker Hub: [tehrobot/docker-manager](https://hub.docker.com/r/tehrobot/docker-manager)
 
 ## License
 

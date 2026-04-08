@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
-  game-server-panel:
-    image: ghcr.io/tehrobot-assistant/game-server-panel:latest
-    container_name: game-server-panel
+  docker-manager:
+    image: tehrobot/docker-manager:latest
+    container_name: docker-manager
     ports:
       - "3000:3000"
     volumes:
@@ -11,5 +9,6 @@ services:
       - ./config:/config
     environment:
       - PORT=3000
-      - ADMIN_PASSWORD=admin
+      - ADMIN_PASSWORD=changeme
+      - CONFIG_PATH=/config
     restart: unless-stopped
