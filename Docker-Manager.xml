@@ -10,7 +10,22 @@
   <Support>https://github.com/TehRobot-Assistant/docker-manager/issues</Support>
   <Project>https://github.com/TehRobot-Assistant/docker-manager</Project>
   <ReadMe/>
-  <Overview>Manage Docker containers remotely with a clean web UI, secure login, and per-user permissions.[br][br]Features:[br]- Start, stop, and restart containers from any device[br]- Secure login with admin and user accounts[br]- Per-user container assignments — users only see what you allow[br]- Container groups for quick multi-user assignment[br]- Live container logs viewer[br]- Admin panel for user and group management[br]- Auto-discovers all Docker containers[br]- Mobile-friendly dark UI[br][br]Default login: admin / admin (change after first login!)</Overview>
+  <Overview>Manage Docker containers remotely with a clean web UI,&#13;
+secure login, and per-user permissions.&#13;
+&#13;
+Features:&#13;
+- Start, stop, and restart containers from any device&#13;
+- Secure login with admin and user accounts&#13;
+- Per-user container assignments — users only see&#13;
+  what you allow&#13;
+- Container groups for quick multi-user assignment&#13;
+- Live container logs viewer&#13;
+- Admin panel for user and group management&#13;
+- Auto-discovers all Docker containers&#13;
+- Mobile-friendly dark UI&#13;
+&#13;
+Default login: admin / admin&#13;
+(change after first login!)</Overview>
   <Category>Tools: Docker:Management</Category>
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
   <TemplateURL/>
