@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Docker-Manager</Name>
+  <Repository>ghcr.io/tehrobot-assistant/docker-manager:latest</Repository>
+  <Registry>https://github.com/TehRobot-Assistant/docker-manager</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/TehRobot-Assistant/docker-manager/issues</Support>
+  <Project>https://github.com/TehRobot-Assistant/docker-manager</Project>
+  <ReadMe/>
+  <Overview>Manage Docker containers remotely with a clean web UI, secure login, and per-user permissions.[br][br]Features:[br]- Start, stop, and restart containers from any device[br]- Secure login with admin and user accounts[br]- Per-user container assignments — users only see what you allow[br]- Container groups for quick multi-user assignment[br]- Live container logs viewer[br]- Admin panel for user and group management[br]- Auto-discovers all Docker containers[br]- Mobile-friendly dark UI[br][br]Default login: admin / admin (change after first login!)</Overview>
+  <Category>Tools: Docker:Management</Category>
+  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/TehRobot-Assistant/docker-manager/main/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DonateText>If you like my work, please consider a donation!</DonateText>
+  <DonateLink>https://buy.stripe.com/fZe6p67wT53E6NGaEE</DonateLink>
+  <Requires/>
+  <Config Name="Port" Target="3000" Default="3000" Mode="tcp" Description="" Type="Port" Display="always" Required="true" Mask="false">3000</Config>
+  <Config Name="Config Dir" Target="/config" Default="/mnt/user/appdata/docker-manager" Mode="rw" Description="" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/docker-manager</Config>
+  <Config Name="Docker Socket" Target="/var/run/docker.sock" Default="/var/run/docker.sock" Mode="ro" Description="" Type="Path" Display="always" Required="true" Mask="false">/var/run/docker.sock</Config>
+  <Config Name="Admin Password" Target="ADMIN_PASSWORD" Default="admin" Mode="" Description="Initial admin password (only used on first run)" Type="Variable" Display="always" Required="false" Mask="true">admin</Config>
+  <TailscaleStateDir/>
+</Container>
