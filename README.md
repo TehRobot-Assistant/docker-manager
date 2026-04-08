@@ -1,6 +1,12 @@
 # Docker Manager
 
-A simple, secure web panel to let users start, stop, and restart Docker containers remotely.
+<p align="center">
+  <img src="icon.png" alt="Docker Manager" width="200">
+</p>
+
+<p align="center">
+  A simple, secure web panel to let users start, stop, and restart Docker containers remotely.
+</p>
 
 **Why?** Let your mates restart game servers without giving them full Docker access. Create users, assign specific containers, and group them for easy management. Your database containers stay safe.
 
