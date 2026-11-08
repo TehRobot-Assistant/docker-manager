@@ -12,7 +12,51 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const CONFIG_DIR = process.env.CONFIG_PATH || join(__dirname, 'config');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
+// No hard-coded default any more: this app holds the Docker socket, so a public
+// instance left on admin/admin is a full host takeover. If ADMIN_PASSWORD isn't
+// set, first run generates a random one and prints it to the container log once.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString('base64url');
+const ADMIN_PASSWORD_GENERATED = !process.env.ADMIN_PASSWORD;
+
+// Login throttling. Per-account AND per-IP, because behind Cloudflare many users
+// can share an edge IP and an attacker can rotate IPs. Trade-off: anyone who
+// knows a username can keep it locked by failing on purpose; the lock clears
+// itself after the window.
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_FAILS_PER_USER = Number(process.env.MAX_FAILS_PER_USER) || 10;
+const MAX_FAILS_PER_IP = Number(process.env.MAX_FAILS_PER_IP) || 30;
+const loginFails = new Map(); // key -> { count, first }
+
+function failCount(key) {
+  const e = loginFails.get(key);
+  if (!e) return 0;
+  if (Date.now() - e.first > LOGIN_WINDOW_MS) { loginFails.delete(key); return 0; }
+  return e.count;
+}
+function recordFail(key) {
+  const e = loginFails.get(key);
+  if (!e || Date.now() - e.first > LOGIN_WINDOW_MS) loginFails.set(key, { count: 1, first: Date.now() });
+  else e.count++;
+}
+// Keep the map from growing without bound under a spray of random usernames.
+setInterval(() => { for (const k of loginFails.keys()) failCount(k); }, 60 * 1000).unref();
+
+// Usernames become keys of config.users, so refuse anything that could reach
+// Object.prototype ("__proto__", "constructor") or look like a path.
+const USERNAME_RE = /^[A-Za-z0-9._-]{1,64}$/;
+// The regex alone still allows "__proto__" / "constructor" (underscores and
+// letters are legal), so also refuse any name Object.prototype already has.
+const validName = (n) => typeof n === 'string' && USERNAME_RE.test(n) && !(n in Object.prototype);
+const hasUser = (name) => typeof name === 'string' && Object.hasOwn(config.users, name);
+const hasGroup = (name) => typeof name === 'string' && Object.hasOwn(config.groups, name);
+const isNameList = (a) => Array.isArray(a) && a.every(x => typeof x === 'string' && x.length <= 255);
+const DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), 10);
+
+// Express 4 doesn't catch rejected promises from async handlers; an uncaught
+// rejection kills the process (the whole panel goes down). Route every async
+// handler through this so errors become a 500 instead.
+const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+process.on('unhandledRejection', (err) => console.error('Unhandled rejection:', err));
 
 // Docker connection
 const dockerSocket = process.env.DOCKER_HOST || '/var/run/docker.sock';
@@ -51,7 +95,7 @@ async function initConfig() {
     
     writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
     console.log('📄 Created new config with admin user');
-    console.log(`   Default login: admin / ${ADMIN_PASSWORD === 'admin' ? 'admin (⚠️ CHANGE THIS!)' : '(from ADMIN_PASSWORD env)'}`);
+    console.log(`   Login: admin / ${ADMIN_PASSWORD_GENERATED ? `${ADMIN_PASSWORD}  (generated, shown once; change it after logging in)` : '(from ADMIN_PASSWORD env)'}`);
   }
   
   return config;
@@ -66,30 +110,82 @@ let config;
 (async () => {
   config = await initConfig();
   
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  // Behind NPM/Cloudflare: trust private-range proxies so req.secure / req.ip
+  // reflect the real request (needed for the Secure cookie and IP throttling).
+  // Override with TRUST_PROXY (any Express trust-proxy value, "false" to disable).
+  const tp = process.env.TRUST_PROXY ?? 'loopback, linklocal, uniquelocal';
+  app.set('trust proxy', tp === 'false' ? false : tp);
+  app.disable('x-powered-by');
+
+  app.use((req, res, next) => {
+    res.set('X-Frame-Options', 'DENY');
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Referrer-Policy', 'same-origin');
+    next();
+  });
+
+  // JSON only. The urlencoded parser is gone on purpose: it let a plain HTML
+  // <form> on any website submit to these endpoints with the admin's cookie.
+  app.use(express.json({ limit: '100kb' }));
+
+  // CSRF: refuse state-changing API calls that a browser marks as cross-site.
+  // Sec-Fetch-Site first (all current browsers), Origin vs Host as the fallback.
+  app.use('/api', (req, res, next) => {
+    if (req.method === 'GET' || req.method === 'HEAD') return next();
+    const sfs = req.get('sec-fetch-site');
+    if (sfs) return (sfs === 'same-origin' || sfs === 'none') ? next() : res.status(403).json({ error: 'Cross-site request blocked' });
+    const origin = req.get('origin');
+    if (origin) {
+      try { if (new URL(origin).host !== req.get('host')) return res.status(403).json({ error: 'Cross-site request blocked' }); }
+      catch { return res.status(403).json({ error: 'Cross-site request blocked' }); }
+    }
+    next();
+  });
+
   app.use(session({
+    name: 'dm.sid',
     secret: config.sessionSecret,
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+    // secure:'auto' = Secure flag whenever the request arrived over HTTPS (via the
+    // trusted proxy's X-Forwarded-Proto), while plain-http LAN access still works.
+    cookie: { httpOnly: true, sameSite: 'lax', secure: 'auto', maxAge: 24 * 60 * 60 * 1000 }
   }));
   app.use(express.static(join(__dirname, 'public')));
 
+  // A session is only valid while its user exists and hasn't had their password
+  // changed since that session logged in (so a reset kicks everyone out).
+  function sessionUser(req) {
+    const name = req.session.user;
+    if (!hasUser(name)) return null;
+    const user = config.users[name];
+    if (user.passwordChangedAt && (req.session.loginAt || 0) < user.passwordChangedAt) return null;
+    return user;
+  }
+
   function requireAuth(req, res, next) {
-    if (req.session.user) next();
+    if (sessionUser(req)) next();
     else res.status(401).json({ error: 'Unauthorized' });
   }
 
   function requireAdmin(req, res, next) {
-    if (req.session.user && config.users[req.session.user]?.isAdmin) next();
+    if (sessionUser(req)?.isAdmin) next();
     else res.status(403).json({ error: 'Admin access required' });
   }
 
   function getUserContainers(username) {
+    if (!hasUser(username)) return [];
     const user = config.users[username];
-    if (user?.isAdmin) return '__all__';
-    return user ? user.containers || [] : [];
+    if (user.isAdmin) return '__all__';
+    return user.containers || [];
+  }
+
+  // Client IP for throttling. Cloudflare's header is used only when the request
+  // came through a trusted (private-range) proxy, so it can't be spoofed by a
+  // client talking to the app directly.
+  function clientIp(req) {
+    const cf = req.get('cf-connecting-ip');
+    return (cf && req.ip !== req.socket.remoteAddress) ? cf : req.ip;
   }
 
   async function isDefaultPassword() {
@@ -100,35 +196,54 @@ let config;
 
   // ==================== AUTH API ====================
 
-  app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-    const user = config.users[username];
-    
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-    
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    
+  app.post('/api/login', wrap(async (req, res) => {
+    const { username, password } = req.body || {};
+    if (typeof username !== 'string' || typeof password !== 'string' || password.length > 1024) {
+      return res.status(400).json({ error: 'Invalid credentials' });
+    }
+
+    const ipKey = 'ip:' + clientIp(req);
+    const userKey = 'user:' + username.toLowerCase();
+    // Checked BEFORE bcrypt so a flood can't be used to burn CPU either.
+    if (failCount(ipKey) >= MAX_FAILS_PER_IP || failCount(userKey) >= MAX_FAILS_PER_USER) {
+      res.set('Retry-After', String(LOGIN_WINDOW_MS / 1000));
+      return res.status(429).json({ error: 'Too many failed attempts. Try again in 15 minutes.' });
+    }
+
+    const user = hasUser(username) ? config.users[username] : null;
+    // Compare against a dummy hash for unknown users so response time doesn't
+    // reveal which usernames exist.
+    const valid = await bcrypt.compare(password, user?.password || DUMMY_HASH);
+    if (!user || !valid) {
+      recordFail(ipKey); recordFail(userKey);
+      console.warn(`Failed login for "${username.slice(0, 64)}" from ${clientIp(req)}`);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    loginFails.delete(userKey);
+    // New session id on login (no session fixation).
+    await new Promise((ok, fail) => req.session.regenerate(e => e ? fail(e) : ok()));
     req.session.user = username;
+    req.session.loginAt = Date.now();
     const usingDefault = username === 'admin' && await isDefaultPassword();
-    
+
     res.json({ success: true, username, isAdmin: user.isAdmin || false, defaultPassword: usingDefault });
-  });
+  }));
 
   app.post('/api/logout', (req, res) => {
     req.session.destroy();
     res.json({ success: true });
   });
 
-  app.get('/api/me', async (req, res) => {
-    if (req.session.user) {
-      const user = config.users[req.session.user];
+  app.get('/api/me', wrap(async (req, res) => {
+    const user = sessionUser(req);
+    if (user) {
       const usingDefault = req.session.user === 'admin' && await isDefaultPassword();
-      res.json({ username: req.session.user, isAdmin: user?.isAdmin || false, defaultPassword: usingDefault });
+      res.json({ username: req.session.user, isAdmin: user.isAdmin || false, defaultPassword: usingDefault });
     } else {
       res.status(401).json({ error: 'Not logged in' });
     }
-  });
+  }));
 
   // ==================== CONTAINERS API ====================
 
@@ -316,17 +431,19 @@ let config;
     res.json(groups);
   });
 
+  // Group and user names are object keys in config.json: hasGroup/hasUser use
+  // Object.hasOwn so names like "__proto__" or "constructor" can't reach
+  // Object.prototype, and new names must match USERNAME_RE.
   app.post('/api/admin/groups', requireAdmin, (req, res) => {
-    const { name, containers } = req.body;
-    
-    if (!name || typeof name !== 'string') {
-      return res.status(400).json({ error: 'Group name required' });
+    const { name, containers } = req.body || {};
+    if (!validName(name)) {
+      return res.status(400).json({ error: 'Group name required (letters, numbers, . _ - only)' });
     }
-    
-    if (config.groups[name]) {
-      return res.status(400).json({ error: 'Group already exists' });
+    if (containers !== undefined && !isNameList(containers)) {
+      return res.status(400).json({ error: 'Containers must be a list of names' });
     }
-    
+    if (hasGroup(name)) return res.status(400).json({ error: 'Group already exists' });
+
     config.groups[name] = containers || [];
     saveConfig(config);
     res.json({ success: true, name });
@@ -334,32 +451,28 @@ let config;
 
   app.put('/api/admin/groups/:name', requireAdmin, (req, res) => {
     const { name } = req.params;
-    const { containers, newName } = req.body;
-    
-    if (!config.groups[name]) {
-      return res.status(404).json({ error: 'Group not found' });
+    const { containers, newName } = req.body || {};
+    if (!hasGroup(name)) return res.status(404).json({ error: 'Group not found' });
+    if (containers !== undefined && !isNameList(containers)) {
+      return res.status(400).json({ error: 'Containers must be a list of names' });
     }
-    
-    if (Array.isArray(containers)) {
-      config.groups[name] = containers;
+    if (newName !== undefined && newName !== name) {
+      if (!validName(newName)) return res.status(400).json({ error: 'Invalid group name' });
+      if (hasGroup(newName)) return res.status(400).json({ error: 'Group already exists' });
     }
-    
+
+    if (containers) config.groups[name] = containers;
     if (newName && newName !== name) {
       config.groups[newName] = config.groups[name];
       delete config.groups[name];
     }
-    
     saveConfig(config);
     res.json({ success: true });
   });
 
   app.delete('/api/admin/groups/:name', requireAdmin, (req, res) => {
     const { name } = req.params;
-    
-    if (!config.groups[name]) {
-      return res.status(404).json({ error: 'Group not found' });
-    }
-    
+    if (!hasGroup(name)) return res.status(404).json({ error: 'Group not found' });
     delete config.groups[name];
     saveConfig(config);
     res.json({ success: true });
@@ -376,59 +489,76 @@ let config;
     res.json(users);
   });
 
-  app.post('/api/admin/users', requireAdmin, async (req, res) => {
-    const { username, password, isAdmin, containers } = req.body;
-    
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password required' });
+  const validPassword = (p) => typeof p === 'string' && p.length >= 8 && p.length <= 1024;
+
+  app.post('/api/admin/users', requireAdmin, wrap(async (req, res) => {
+    const { username, password, isAdmin, containers } = req.body || {};
+    if (!validName(username)) {
+      return res.status(400).json({ error: 'Username required (letters, numbers, . _ - only)' });
     }
-    
-    if (config.users[username]) {
-      return res.status(400).json({ error: 'User already exists' });
+    if (!validPassword(password)) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (containers !== undefined && !isNameList(containers)) {
+      return res.status(400).json({ error: 'Containers must be a list of names' });
     }
-    
+    if (hasUser(username)) return res.status(400).json({ error: 'User already exists' });
+
     config.users[username] = {
       password: await bcrypt.hash(password, 10),
-      isAdmin: isAdmin || false,
+      isAdmin: isAdmin === true, // strictly boolean: "false" or "1" must not grant admin
       containers: containers || []
     };
-    
     saveConfig(config);
     res.json({ success: true, username });
-  });
+  }));
 
-  app.put('/api/admin/users/:username', requireAdmin, async (req, res) => {
+  app.put('/api/admin/users/:username', requireAdmin, wrap(async (req, res) => {
     const { username } = req.params;
-    const { password, isAdmin, containers } = req.body;
-    
-    if (!config.users[username]) {
-      return res.status(404).json({ error: 'User not found' });
+    const { password, isAdmin, containers } = req.body || {};
+    if (!hasUser(username)) return res.status(404).json({ error: 'User not found' });
+    if (password !== undefined && password !== '' && !validPassword(password)) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
-    
+    if (containers !== undefined && !isNameList(containers)) {
+      return res.status(400).json({ error: 'Containers must be a list of names' });
+    }
     if (username === 'admin' && isAdmin === false) {
       const otherAdmins = Object.entries(config.users).filter(([u, d]) => u !== 'admin' && d.isAdmin);
       if (otherAdmins.length === 0) {
         return res.status(400).json({ error: 'Cannot remove admin status from the only admin' });
       }
     }
-    
-    if (password) config.users[username].password = await bcrypt.hash(password, 10);
-    if (typeof isAdmin === 'boolean') config.users[username].isAdmin = isAdmin;
-    if (Array.isArray(containers)) config.users[username].containers = containers;
-    
+
+    const user = config.users[username];
+    if (password) {
+      user.password = await bcrypt.hash(password, 10);
+      // Ends every existing session for this user (see sessionUser). If admins
+      // change their own password, keep their current session alive.
+      user.passwordChangedAt = Date.now();
+      if (req.session.user === username) req.session.loginAt = Date.now() + 1;
+    }
+    if (typeof isAdmin === 'boolean') user.isAdmin = isAdmin;
+    if (containers) user.containers = containers;
+
     saveConfig(config);
     res.json({ success: true, username });
-  });
+  }));
 
   app.delete('/api/admin/users/:username', requireAdmin, (req, res) => {
     const { username } = req.params;
-    
     if (username === 'admin') return res.status(400).json({ error: 'Cannot delete admin user' });
-    if (!config.users[username]) return res.status(404).json({ error: 'User not found' });
-    
-    delete config.users[username];
+    if (!hasUser(username)) return res.status(404).json({ error: 'User not found' });
+    delete config.users[username]; // their sessions stop working at once (sessionUser)
     saveConfig(config);
     res.json({ success: true });
+  });
+
+  // Errors from wrap()ed handlers and bad JSON bodies end up here.
+  app.use('/api', (err, req, res, next) => {
+    if (err.type === 'entity.parse.failed' || err.type === 'entity.too.large') {
+      return res.status(400).json({ error: 'Bad request' });
+    }
+    console.error('API error:', err);
+    res.status(500).json({ error: 'Internal error' });
   });
 
   app.get('*', (req, res) => {

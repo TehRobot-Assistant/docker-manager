@@ -24,7 +24,7 @@ Features:&#13;
 - Auto-discovers all Docker containers&#13;
 - Mobile-friendly dark UI&#13;
 &#13;
-Default login: admin / admin&#13;
+Login: admin / the Admin Password you set (blank = random, printed once in the container log)&#13;
 (change after first login!)</Overview>
   <Category>Tools: Docker:Management</Category>
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
@@ -39,6 +39,6 @@ Default login: admin / admin&#13;
   <Config Name="Port" Target="3000" Default="3000" Mode="tcp" Description="" Type="Port" Display="always" Required="true" Mask="false">3000</Config>
   <Config Name="Config Dir" Target="/config" Default="/mnt/user/appdata/docker-manager" Mode="rw" Description="" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/docker-manager</Config>
   <Config Name="Docker Socket" Target="/var/run/docker.sock" Default="/var/run/docker.sock" Mode="ro" Description="" Type="Path" Display="always" Required="true" Mask="false">/var/run/docker.sock</Config>
-  <Config Name="Admin Password" Target="ADMIN_PASSWORD" Default="admin" Mode="" Description="Initial admin password (only used on first run)" Type="Variable" Display="always" Required="false" Mask="true">admin</Config>
+  <Config Name="Admin Password" Target="ADMIN_PASSWORD" Default="" Mode="" Description="Initial admin password (only used on first run). Leave blank to generate a random one, shown once in the log" Type="Variable" Display="always" Required="false" Mask="true"></Config>
   <TailscaleStateDir/>
 </Container>

@@ -26,7 +26,7 @@ services:
 docker-compose up -d
 ```
 
-**Login:** `admin` / `changeme` → change password on first login!
+**Login:** `admin` / your `ADMIN_PASSWORD` (if unset, a random one is printed once in the container log). Change it after first login.
 
 ## Features
 

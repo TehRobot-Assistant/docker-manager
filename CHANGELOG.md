@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0] - 2026-11-08
+
+### Security
+- **Login throttling**: 10 failed logins per username or 30 per IP in 15 minutes return 429, checked before any password hashing. Uses Cloudflare's client IP only when the request came via a trusted proxy.
+- **Crash fix**: a login as `constructor`/`__proto__` (or a non-string password) threw an unhandled rejection and stopped the server. Names are now looked up with `Object.hasOwn`, inputs are type-checked, and async errors return a 500.
+- **CSRF**: cross-site POST/PUT/DELETE to `/api` is refused (Sec-Fetch-Site, then Origin). Form-encoded bodies are no longer accepted.
+- **Session cookie**: `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS (trusted proxy aware). New session id on login.
+- **Password changes and user deletes end that user's existing sessions.**
+- **No default `admin` password**: if `ADMIN_PASSWORD` is unset, first run generates a random one and logs it once.
+- New users and groups: names limited to letters, numbers and `. _ -`; passwords at least 8 characters; `isAdmin` must be a real boolean.
+- `X-Frame-Options: DENY`, `nosniff` and `Referrer-Policy` headers; `X-Powered-By` removed.
+
 ## [1.5.1] - 2026-03-23
 
 ### Changed

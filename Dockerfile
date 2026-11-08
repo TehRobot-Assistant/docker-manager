@@ -16,6 +16,5 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV CONFIG_PATH=/config
-ENV ADMIN_PASSWORD=admin
 
 CMD ["node", "server.mjs"]

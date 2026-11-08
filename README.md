@@ -65,7 +65,7 @@ docker run -d \
 ## First Run
 
 1. Open the web UI
-2. Login with `admin` / `admin` (or your `ADMIN_PASSWORD`)
+2. Login with `admin` and your `ADMIN_PASSWORD`. If you didn't set one, a random password is generated on first run and printed once in the container log (`docker logs docker-manager`)
 3. **Change your password** — a warning banner will remind you
 4. Go to **Admin** tab to create users and assign containers
 
@@ -92,7 +92,10 @@ Bundle containers for quick assignment:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3000` | Web server port |
-| `ADMIN_PASSWORD` | `admin` | Initial admin password (first run only) |
+| `ADMIN_PASSWORD` | *(random, printed to the log)* | Initial admin password (first run only) |
+| `TRUST_PROXY` | `loopback, linklocal, uniquelocal` | Which reverse proxies to trust for client IP / HTTPS detection. `false` to disable |
+| `MAX_FAILS_PER_USER` | `10` | Failed logins per username per 15 min before a 429 |
+| `MAX_FAILS_PER_IP` | `30` | Failed logins per client IP per 15 min before a 429 |
 | `CONFIG_PATH` | `/config` | Config directory path |
 | `DOCKER_HOST` | `/var/run/docker.sock` | Docker socket or `host:port` |
 
